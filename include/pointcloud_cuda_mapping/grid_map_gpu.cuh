@@ -15,6 +15,16 @@ class GPU_GridMap{
     __host__ __device__ int width=0;
     __host__ __device__ int height=0;
     __host__ __device__ int size=0;
+    __host__ __device__ int origin_x=0;
+    __host__ __device__ int origin_y=0;
+
+    int* ptr_resolution;
+    int* ptr_width;
+    int* ptr_height;
+    int* ptr_size;
+    int* ptr_origin_x;
+    int* ptr_origin_y;
+
 
     __host__ __device__ std::pair<int,int> origin;
     public:
@@ -30,6 +40,7 @@ class GPU_GridMap{
     __device__ int indexOf(float* ptr);
     __device__ float* pointerOf(float* ptr);
     __device__ float valueOf(float* ptr);
+    __device__ int indexOfN(float x, float y);
     // __device__ 
 };
 #endif
