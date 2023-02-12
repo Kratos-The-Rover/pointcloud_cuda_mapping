@@ -1,31 +1,81 @@
-cmake_minimum_required(VERSION 3.0.2)
-project(pointcloud_cuda_mapping)
-
-## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
-
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
+cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+project(pointcloud_cuda_mapping LANGUAGES CXX CUDA)
+set(CUDA_DIR /usr/local/cuda-11)
+add_compile_options(-std=c++14 )
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CUDA_STANDARD 14)
+set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DMY_DEF=1")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DMY_DEF=1" )
+# set(CMAKE_CXX_COMPILER nvcc)
 find_package(catkin REQUIRED COMPONENTS
-  CUDA
   roscpp
   rospy
   sensor_msgs
   std_msgs
   tf
   tf2
+  pcl_conversions
+  pcl_ros
+  grid_map_core
+  grid_map_msgs
+  grid_map_ros
+  grid_map_loader
+  nodelet
 )
+find_package(CUDA REQUIRED)
+find_package(PCL REQUIRED)
 
-## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
+LIST(APPEND CUDA_NVCC_FLAGS "-arch=sm_75") #to be changed for Jetson
+link_directories(${CUDA_LIBRARY_DIRS})
 
-## Uncomment this if the package has a setup.py. This macro ensures
-## modules and global scripts declared therein get installed
-## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
-# catkin_python_setup()
+ # only necessary if you wish to create a lib
+set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE OFF)
+set(BUILD_SHARED_LIBS ON)
 
+include_directories(
+  include
+  ${catkin_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
+  ${CUDA_INCLUDE_DIRS}
+)
+
+# cuda_compile(cloud_cuda src/pointcloud_cuda.cu )
+add_library(Cloud_cuda SHARED src/pointcloud_cuda.cu)
+target_link_libraries(Cloud_cuda ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${PCL_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
+target_compile_features(Cloud_cuda PUBLIC cxx_std_11)
+set_target_properties(Cloud_cuda PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON CUDA_SEPARABLE_COMPILATION ON POSITION_INDEPENDENT_CODE ON CUDA_ARCHITECTURES "75")
+
+
+# cuda_compile(cloud_cuda src/pointcloud_cuda.cu )
+add_library(map_cuda SHARED src/grid_map_gpu.cu)
+target_link_libraries(map_cuda ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${PCL_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
+target_compile_features(map_cuda PUBLIC cxx_std_11)
+set_target_properties(map_cuda PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON CUDA_SEPARABLE_COMPILATION ON POSITION_INDEPENDENT_CODE ON CUDA_ARCHITECTURES "75")
+
+
+
+# target_link_libraries(cloud_cuda ${CUDA_LIBRARIES})
+# add_executable(bruh src/pointcloud_node.cpp)
+
+# target_link_libraries(bruh Cloud_cuda)
+# target_link_libraries(bruh PRIVATE Cloud_cuda ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${CUDA_LIBRARIES})
+add_library(pointcloud_processor_lib src/pointcloud_nodelet.cpp)
+set_target_properties(pointcloud_processor_lib
+  PROPERTIES  
+    CUDA_SEPARABLE_COMPILATION ON 
+    CUDA_RESOLVE_DEVICE_SYMBOLS ON 
+    POSITION_INDEPENDENT_CODE ON 
+    CUDA_ARCHITECTURES "75"
+    )
+
+
+
+target_link_libraries(pointcloud_processor_lib LINK_PUBLIC Cloud_cuda map_cuda ${catkin_LIBRARIES} LINK_PUBLIC ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY} ${CUDA_CUBLAS_LIBRARIES} ${CUDA_CUDART_LIBRARY} ${CUDA_NPP_LIBRARIES_ZED} ${PCL_LIBRARIES})
+
+add_executable(transform_Publisher src/transform_Publisher.cpp)
+target_link_libraries(transform_Publisher ${catkin_LIBRARIES})
 ################################################
 ## Declare ROS messages, services and actions ##
 ################################################
@@ -72,30 +122,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   sensor_msgs#   std_msgs
-# )
-
-################################################
-## Declare ROS dynamic reconfigure parameters ##
-################################################
-
-## To declare and build dynamic reconfigure parameters within this
-## package, follow these steps:
-## * In the file package.xml:
-##   * add a build_depend and a exec_depend tag for "dynamic_reconfigure"
-## * In this file (CMakeLists.txt):
-##   * add "dynamic_reconfigure" to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * uncomment the "generate_dynamic_reconfigure_options" section below
-##     and list every .cfg file to be processed
-
-## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
-#   cfg/DynReconf2.cfg
-# )
+generate_messages(
+  DEPENDENCIES
+  sensor_msgs   std_msgs
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -107,10 +137,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES pointcloud_cuda_mapping
-#  CATKIN_DEPENDS CUDA roscpp rospy sensor_msgs std_msgs tf tf2
-#  DEPENDS system_lib
+ INCLUDE_DIRS include
+ LIBRARIES pointcloud_cuda_mapping
+ CATKIN_DEPENDS roscpp rospy sensor_msgs std_msgs tf tf2
 )
 
 ###########
@@ -119,10 +148,7 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
-)
+
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -153,58 +179,3 @@ include_directories(
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
-
-#############
-## Install ##
-#############
-
-# all install targets should use catkin DESTINATION variables
-# See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
-
-## Mark executable scripts (Python etc.) for installation
-## in contrast to setup.py, you can choose the destination
-# catkin_install_python(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
-
-## Mark executables for installation
-## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
-# install(TARGETS ${PROJECT_NAME}_node
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
-
-## Mark libraries for installation
-## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
-# install(TARGETS ${PROJECT_NAME}
-#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-# )
-
-## Mark cpp header files for installation
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   PATTERN ".svn" EXCLUDE
-# )
-
-## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILES
-#   # myfile1
-#   # myfile2
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
-
-#############
-## Testing ##
-#############
-
-## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_pointcloud_cuda_mapping.cpp)
-# if(TARGET ${PROJECT_NAME}-test)
-#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
-# endif()
-
-## Add folders to be run by python nosetests
-# catkin_add_nosetests(test)
