@@ -42,17 +42,17 @@ include_directories(
 )
 
 # cuda_compile(cloud_cuda src/pointcloud_cuda.cu )
-add_library(Cloud_cuda SHARED src/pointcloud_cuda.cu)
+add_library(Cloud_cuda SHARED src/pointcloud_cuda.cu src/grid_map_gpu.cu)
 target_link_libraries(Cloud_cuda ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${PCL_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
 target_compile_features(Cloud_cuda PUBLIC cxx_std_11)
 set_target_properties(Cloud_cuda PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON CUDA_SEPARABLE_COMPILATION ON POSITION_INDEPENDENT_CODE ON CUDA_ARCHITECTURES "75")
 
 
 # cuda_compile(cloud_cuda src/pointcloud_cuda.cu )
-add_library(map_cuda SHARED src/grid_map_gpu.cu)
-target_link_libraries(map_cuda ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${PCL_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
-target_compile_features(map_cuda PUBLIC cxx_std_11)
-set_target_properties(map_cuda PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON CUDA_SEPARABLE_COMPILATION ON POSITION_INDEPENDENT_CODE ON CUDA_ARCHITECTURES "75")
+# add_library(map_cuda SHARED src/grid_map_gpu.cu)
+# target_link_libraries(map_cuda ${catkin_LIBRARIES} ${CUDA_LIBRARIES} ${PCL_LIBRARIES} ${CUDA_CUBLAS_LIBRARIES})
+# target_compile_features(map_cuda PUBLIC cxx_std_11)
+# set_target_properties(map_cuda PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON CUDA_SEPARABLE_COMPILATION ON POSITION_INDEPENDENT_CODE ON CUDA_ARCHITECTURES "75")
 
 
 
@@ -72,7 +72,7 @@ set_target_properties(pointcloud_processor_lib
 
 
 
-target_link_libraries(pointcloud_processor_lib LINK_PUBLIC Cloud_cuda map_cuda ${catkin_LIBRARIES} LINK_PUBLIC ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY} ${CUDA_CUBLAS_LIBRARIES} ${CUDA_CUDART_LIBRARY} ${CUDA_NPP_LIBRARIES_ZED} ${PCL_LIBRARIES})
+target_link_libraries(pointcloud_processor_lib LINK_PUBLIC Cloud_cuda ${catkin_LIBRARIES} LINK_PUBLIC ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY} ${CUDA_CUBLAS_LIBRARIES} ${CUDA_CUDART_LIBRARY} ${CUDA_NPP_LIBRARIES_ZED} ${PCL_LIBRARIES})
 
 add_executable(transform_Publisher src/transform_Publisher.cpp)
 target_link_libraries(transform_Publisher ${catkin_LIBRARIES})

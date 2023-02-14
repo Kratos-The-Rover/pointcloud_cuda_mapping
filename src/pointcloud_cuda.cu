@@ -12,6 +12,7 @@
 #include <pcl/impl/point_types.hpp>
 #include <nodelet/nodelet.h>
 #include <pointcloud_cuda_mapping/grid_map_gpu.cuh>
+#include <math.h>
 typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
 
 
@@ -39,6 +40,8 @@ CudaPointCloud::CudaPointCloud(const PointCloud::ConstPtr& cloud_ptr,cublasHandl
 void CudaPointCloud::re_allocate_cloud(const PointCloud::ConstPtr& cloud_ptr){
     std::cout<<"REALLOCATION ONGOING"<<std::endl;
 	mount_filtered_cloud(cloud_ptr,this->cloud);
+    std::cout<<"REALLOCATION DONE"<<std::endl;
+
 }
 
 float* CudaPointCloud::mount_filtered_cloud(const PointCloud::ConstPtr& cloud_ptr,float* cuda_cloud_mat){
@@ -58,8 +61,11 @@ float* CudaPointCloud::mount_filtered_cloud(const PointCloud::ConstPtr& cloud_pt
             this->cloud_size++;
 
         }
+    
 
     }
+    std::cout<<"ALLOCATION DONE"<<std::endl;
+
     return cuda_cloud_mat;
 }
 
@@ -77,7 +83,7 @@ float* CudaPointCloud::add_mat(float* mat){
 float* CudaPointCloud::transform_cloud(float* arg_cloud,float* transform_mat){
     float alpha=1;
     float beta=0;
-    //cublasStatus_t e=cublasSgemmStridedBatched(*(this->cub_handle_ptr),CUBLAS_OP_N, CUBLAS_OP_N, 4,this->cloud_size,4 , &alpha, transform_mat, 4, 4,this->cloud, 4, 4,&beta,this->cloud, 4,4,1);
+    // cublasStatus_t e=cublasSgemmStridedBatched(*(this->cub_handle_ptr),CUBLAS_OP_N, CUBLAS_OP_N, 4,this->cloud_size,4 , &alpha, transform_mat, 4, 4,this->cloud, 4, 4,&beta,this->cloud, 4,4,1);
     cublasStatus_t e=cublasSgemm(*(this->cub_handle_ptr),CUBLAS_OP_N, CUBLAS_OP_N, 4,this->cloud_size,4 , &alpha, transform_mat, 4, this->cloud, 4, &beta,this->cloud, 4);
     
     switch (e)
@@ -102,7 +108,7 @@ float* CudaPointCloud::transform_cloud(float* arg_cloud,float* transform_mat){
 float* CudaPointCloud::transform_cloud(cublasHandle_t* cub_handle_pt){
     float alpha=1;
     float beta=0;
-    //cublasStatus_t e=cublasSgemmStridedBatched(*(this->cub_handle_ptr),CUBLAS_OP_N, CUBLAS_OP_N, 4,this->cloud_size,4 , &alpha, this->tf_mat, 4, 4,this->cloud, 4, 4,&beta,this->cloud, 4,4,1);
+    // cublasStatus_t e=cublasSgemmStridedBatched(*(this->cub_handle_ptr),CUBLAS_OP_N, CUBLAS_OP_N, 4,this->cloud_size,4 , &alpha, this->tf_mat, 4, 4,this->cloud, 4, 4,&beta,this->cloud, 4,4,1);
 
     cublasStatus_t e=cublasSgemm(*(cub_handle_pt),CUBLAS_OP_N, CUBLAS_OP_N, 4,this->cloud_size,4 , &alpha, this->tf_mat, 4, this->cloud, 4, &beta,this->transformed_cloud, 4);
     switch (e)
@@ -123,8 +129,8 @@ float* CudaPointCloud::transform_cloud(cublasHandle_t* cub_handle_pt){
         break;
     }
 
-    cudaFree(this->cloud);
-    this->cloud=this->transformed_cloud;
+    // cudaFree(this->cloud);
+    // this->cloud=this->transformed_cloud;
 }
 
 CudaPointCloud::~CudaPointCloud(){
@@ -135,6 +141,7 @@ CudaPointCloud::~CudaPointCloud(){
 }
 
 void CudaPointCloud::get_pcl_cloud( pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_msg){
+
 
     for(int i=0;i<this->cloud_size;i++){
         pcl::PointXYZRGB point;
@@ -151,6 +158,34 @@ int CudaPointCloud::get_cloud_size(){
     return this->cloud_size;
 };
 
-__global__ void makeMapFromCloud(CudaPointCloud cloud,  GPU_GridMap grid_map){
+size_t CudaPointCloud::size(int tid){
+    // printf("siiizeee!!!!%d\n",tid);
+    return this->cloud_size;
+};
+
+float* CudaPointCloud::data(){
+    return this->cloud;
+};
+
+void makeMap(CudaPointCloud* cloud,  GPU_GridMap* grid_map){
+    std::cout<<"MAKING_MAP"<<std::endl;
+    int NUM_THREADS_IN_BLOCKS=256;
+    int NUM_BLOCKS_IN_GRID=ceil(cloud->size(-1)/NUM_THREADS_IN_BLOCKS);
+    makeMapFromCloud<<<NUM_BLOCKS_IN_GRID,NUM_THREADS_IN_BLOCKS>>>(cloud,grid_map);
     
+   
+}
+
+__global__ void makeMapFromCloud(CudaPointCloud* cloud,  GPU_GridMap* grid_map){
+    int thread_id = blockIdx.x+blockDim.x*threadIdx.x;
+
+    printf("hi mapper here!!!\n");
+    int map_idx=0;
+    if(thread_id<cloud->size(thread_id)){
+
+        float* cloud_gpu=cloud->data();
+        map_idx=grid_map->indexOf(4.0,5.0);
+        
+    }
+
 }

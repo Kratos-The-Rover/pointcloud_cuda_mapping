@@ -7,13 +7,15 @@
 #include <pcl/point_cloud.h>
 #include <cublas_v2.h>
 #include <thrust/device_vector.h>
+#include <pointcloud_cuda_mapping/grid_map_gpu.cuh>
 typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
+
 class CudaPointCloud{
     private:
-        float* cloud;
+        __host__ __device__ float* cloud;
         float* rgb;
         float* tf_mat;
-        int cloud_size;
+        __device__ __host__ size_t cloud_size;
         float* transformed_cloud;
         int num_cloud_dims;
         pcl::PCLHeader cloud_header;
@@ -21,7 +23,7 @@ class CudaPointCloud{
 
     public:
 
-        CudaPointCloud(const PointCloud::ConstPtr& cloud_ptr,cublasHandle_t* cub_handle_pt);
+        __device__ __host__ CudaPointCloud(const PointCloud::ConstPtr& cloud_ptr,cublasHandle_t* cub_handle_pt);
         float* mount_filtered_cloud(const PointCloud::ConstPtr& cloud_ptr,float* cuda_cloud_mat);
         float* transform_cloud(float* arg_cloud, float* transform_mat);
         float* transform_cloud(cublasHandle_t* cub_handle_pt);
@@ -31,6 +33,12 @@ class CudaPointCloud{
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr get_pcl_cloud();
         void read_cuda_cloud();
         int get_cloud_size();
+        __host__ __device__ size_t size(int tid);
+        __host__ __device__ float* data();
+
         ~CudaPointCloud();
     };
+
+    void makeMap(CudaPointCloud* cloud,  GPU_GridMap* grid_map);
+__global__ void makeMapFromCloud(CudaPointCloud* cloud,  GPU_GridMap* grid_map);
 #endif

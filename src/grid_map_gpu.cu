@@ -44,7 +44,7 @@ GPU_GridMap::GPU_GridMap(int resolution,float width,float height, int origin_x, 
     this->origin_y=origin_y;
     this->ptr_width= &this->width;
     this->ptr_height= &this->height;
-    this->ptr_size= &this->size;
+    this->ptr_size= &this->map_size;
     this->ptr_resolution=&this->resolution;
     this->ptr_origin_x=&this->origin_x;
     this->ptr_origin_y=&this->origin_y;
@@ -58,7 +58,7 @@ GPU_GridMap::GPU_GridMap(int resolution,float width,float height, int origin_x, 
 __device__ GPU_GridMap* GPU_GridMap::shift_to_gpu(){
     
 }
-__device__ int GPU_GridMap::indexOf(float x, float y){
+int GPU_GridMap::indexOf(float x, float y){
     int x_map=(*(this->ptr_origin_x))+x/(*(this->ptr_resolution));
     int y_map=(*(this->ptr_origin_y))+y/(*(this->ptr_resolution));
     return x_map+this->width*y_map;
